@@ -5,6 +5,7 @@ defmodule SCSoundServer.Config do
 
   use TypedStruct
   @typedoc "A SCSoundServer.State"
+
   typedstruct do
     field(:server_name, atom(), default: :sc3_server)
     field(:ip, charlist(), default: '127.0.0.1')

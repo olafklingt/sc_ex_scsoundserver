@@ -21,7 +21,7 @@ defmodule SCSoundServer.GenServer do
 
     stream =
       Stream.unfold(times, fn x ->
-        if IO.inspect(SCSoundServer.ready?(server_name)) != true && x != 0 do
+        if SCSoundServer.ready?(server_name) != true && x != 0 do
           :timer.sleep(100)
           {:ok, x - 1}
         else
@@ -36,8 +36,6 @@ defmodule SCSoundServer.GenServer do
   @default_init %SCSoundServer.Config{}
 
   def start_link(config \\ @default_init) do
-    # IO.puts("scssgs start_link: #{inspect(config)}")
-
     s =
       GenServer.start_link(
         __MODULE__,
@@ -45,18 +43,13 @@ defmodule SCSoundServer.GenServer do
         name: config.server_name
       )
 
-    # IO.puts("scssgs s: #{inspect(s)}")
     t = await_server_startup(config.server_name, 5)
 
     if t do
       SCSoundServer.notify_sync(true, config.client_id, config.server_name)
-
-      # IO.puts("end SoundServer.GenServer start_link")
-
       s
     else
       q = SCSoundServer.quit(config.server_name)
-      # IO.puts("end SoundServer.GenServer start_link but quit")
       q
     end
   end
@@ -65,7 +58,6 @@ defmodule SCSoundServer.GenServer do
   def init(
         config = %SCSoundServer.Config{
           server_name: _server_name,
-          # registry_name: registry_name,
           ip: _ip,
           udp_port: udp_port,
           start_node_id: start_node_id,
@@ -206,6 +198,8 @@ defmodule SCSoundServer.GenServer do
     {:noreply, state}
   end
 
+  # the following is the reason why i should do it differently:
+
   # because I serialize OSC Messages before I send them,
   # handle_casts only get binaries
   # thats why i also implemented it this way for handle_call
@@ -234,13 +228,15 @@ defmodule SCSoundServer.GenServer do
     {:noreply, state}
   end
 
-  def handle_cast({:new_group_async, {node_id, add_action_id, target_node_id}}, from, state) do
+  @impl true
+  def handle_cast({:new_group_async, {node_id, add_action_id, target_node_id}}, state) do
     data = encode(["g_new", node_id, add_action_id, target_node_id])
 
     :ok = :gen_udp.send(state.socket, state.config.ip, state.config.udp_port, data)
     {:noreply, state}
   end
 
+  @impl true
   def handle_cast(
         {:start_synth_async, {def_name, args, node_id, add_action_id, target_node_id}},
         state
@@ -275,18 +271,12 @@ defmodule SCSoundServer.GenServer do
     :gen_udp.send(socket, ip, udp_port, encode(["g_freeAll", 0]))
     :gen_udp.send(socket, ip, udp_port, encode(["clearSched", []]))
 
-    # :gen_udp.send(socket, ip, udp_port, encode(["g_new", [1, 0, 0]]))
-
     %SCSoundServer.State{} = state
     {:noreply, %{state | next_node_id: state.config.start_node_id}}
   end
 
   @impl true
   def handle_cast(:dump_tree, state) do
-    socket = state.socket
-    ip = state.config.ip
-    udp_port = state.config.udp_port
-
     :gen_udp.send(
       state.socket,
       state.config.ip,
@@ -305,15 +295,10 @@ defmodule SCSoundServer.GenServer do
 
     # matcher = [{{:"$1", :"$2", :_}, [], [{{:"$1", :"$2"}}]}]
     #
-    # IO.puts("matcher:")
-    # IO.inspect(matcher)
-    #
     # nodes = Registry.select(state.config.registry_name, matcher)
 
     # for {id, pid} <- nodes do
-    #   IO.puts("exit: #{inspect(id)} #{inspect(pid)}")
     #   a = Process.exit(pid, :ok)
-    #   IO.puts("exit return: #{inspect(a)}")
     # end
 
     %SCSoundServer.State{} = state
@@ -330,7 +315,9 @@ defmodule SCSoundServer.GenServer do
         from.()
 
       nil == from ->
-        IO.puts("no response registered for synth_started: #{inspect(arguments)}")
+        nil
+
+      #   IO.puts("no response registered for synth_started: #{inspect(arguments)}")
 
       true ->
         GenServer.reply(from, node_id)
@@ -349,8 +336,8 @@ defmodule SCSoundServer.GenServer do
       is_function(from) ->
         from.()
 
-      nil == from ->
-        IO.puts("no response registered for group_started: #{inspect(arguments)}")
+      # nil == from ->
+      #   IO.puts("no response registered for group_started: #{inspect(arguments)}")
 
       # instead of pid i could make use of node_id in the response
       # is_pid(from) ->
@@ -500,7 +487,6 @@ defmodule SCSoundServer.GenServer do
         },
         state
       ) do
-    # IO.puts("n_go: #{inspect(arguments)}")
     GenServer.cast(self(), {:server_response, :group_started, arguments})
 
     %SCSoundServer.State{} = state
@@ -529,7 +515,6 @@ defmodule SCSoundServer.GenServer do
   @impl true
   def terminate(_reason, _state) do
     IO.puts("soundserver terminate wait 1 sec before restart")
-    # IO.puts("soundserver terminate #{inspect(state)}")
     :timer.sleep(1000)
   end
 end

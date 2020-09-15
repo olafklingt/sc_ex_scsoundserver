@@ -22,7 +22,6 @@ defmodule SCSoundServer do
 
   @spec quit(atom) :: any()
   def quit(server_name \\ @default_server_name) do
-    IO.puts("SoundServer Quit!!!!")
     GenServer.cast(server_name, :quit)
   end
 
@@ -64,7 +63,7 @@ defmodule SCSoundServer do
     )
   end
 
-  @spec start_synth_async(string, list, non_neg_integer, non_neg_integer, non_neg_integer, atom) ::
+  @spec start_synth_async(charlist, list, non_neg_integer, non_neg_integer, non_neg_integer, atom) ::
           any()
   def start_synth_async(
         def_name,
