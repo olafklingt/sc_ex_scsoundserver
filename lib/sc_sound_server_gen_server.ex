@@ -116,7 +116,6 @@ defmodule SCSoundServer.GenServer do
        port: port,
        socket: socket,
        node_ids: Enum.to_list(start_node_id..end_node_id),
-       next_node_id: start_node_id,
        queries: %{}
      }}
   end

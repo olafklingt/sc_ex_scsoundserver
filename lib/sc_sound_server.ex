@@ -5,7 +5,7 @@ defmodule SCSoundServer do
 
   @default_server_name :sc3_server
 
-  @spec get_next_node_id(atom) :: any()
+  @spec get_next_node_id(atom) :: integer()
   def get_next_node_id(server_name \\ @default_server_name) do
     GenServer.call(server_name, :get_next_node_id)
   end

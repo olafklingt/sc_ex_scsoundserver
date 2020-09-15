@@ -27,12 +27,10 @@ defmodule SCSoundServer.State do
   typedstruct do
     field(:config, %SCSoundServer.Config{}, enforce: true)
     field(:ready, boolean(), default: false)
-    field(:default_group, nil | SCNode.Config.t(), default: nil)
     field(:exit_status, integer())
     field(:port, pid())
     field(:socket, pid())
     field(:node_ids, list, enforce: true)
-    field(:next_node_id, non_neg_integer(), enforce: true)
     field(:queries, dafault: %{})
   end
 end
