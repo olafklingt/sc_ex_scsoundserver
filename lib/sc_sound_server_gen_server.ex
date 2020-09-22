@@ -81,7 +81,7 @@ defmodule SCSoundServer.GenServer do
      }}
   end
 
-  @spec add_to_msg_query(map, atom, any) :: map
+  @spec add_to_msg_query(map, atom | {atom, any}, any) :: map
   def add_to_msg_query(state, id, from) do
     queries = state.queries
     queries = Map.put(queries, id, from)
@@ -390,7 +390,7 @@ defmodule SCSoundServer.GenServer do
     {:noreply, state}
   end
 
-  @spec handle_osc(%OSC.Message{}, %SCSoundServer.State{}) :: {atom, %SCSoundServer.State{}}
+  @spec handle_osc(%OSC.Message{}, %SCSoundServer.State{}) :: %SCSoundServer.State{}
   def handle_osc(%OSC.Message{address: "/fail", arguments: ["/notify", string, _id]}, state) do
     GenServer.cast(self(), {:server_response, :notify_set, {:error, string}})
     %SCSoundServer.State{} = state

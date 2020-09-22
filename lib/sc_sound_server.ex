@@ -26,8 +26,6 @@ defmodule SCSoundServer do
   @default_init %SCSoundServer.Config{}
 
   def start_link(config \\ @default_init) do
-    IO.puts("start_link(config: #{inspect(config.server_name)}")
-
     s =
       GenServer.start_link(
         SCSoundServer.GenServer,
@@ -46,10 +44,11 @@ defmodule SCSoundServer do
     end
   end
 
+  @spec add_def(String.t(), map) :: integer()
   def add_def(name, ugen) do
     def = SCSynthDef.new(name, ugen)
     bytes = SCSynthDef.encode_to_bytes(def)
-    :ok = SCSoundServer.send_synthdef_sync(bytes)
+    SCSoundServer.send_synthdef_sync(bytes)
     def
   end
 
@@ -116,7 +115,14 @@ defmodule SCSoundServer do
     )
   end
 
-  @spec start_synth_async(charlist, list, non_neg_integer, non_neg_integer, non_neg_integer, atom) ::
+  @spec start_synth_async(
+          charlist | String.t() | binary,
+          list,
+          non_neg_integer,
+          non_neg_integer,
+          non_neg_integer,
+          atom
+        ) ::
           any()
   def start_synth_async(
         def_name,
@@ -164,10 +170,7 @@ defmodule SCSoundServer do
 
   @spec notify_async(boolean, integer, atom) :: any()
   def notify_async(flag, client_id, server_name \\ @default_server_name) do
-    SCSoundServer.send_msg_async(
-      ["notify", (flag && 1) || 0, client_id],
-      server_name: server_name
-    )
+    GenServer.cast(server_name, {:osc_message, encode(["notify", (flag && 1) || 0, client_id])})
   end
 
   @spec notify_sync(boolean, integer, atom) :: any()
@@ -200,7 +203,7 @@ defmodule SCSoundServer do
   end
 
   # todo get rid of this detour
-  @spec send_msg_async(iodata, atom) :: any()
+  @spec send_msg_async([any, ...], atom | pid | {atom, any} | {atom, atom, any}) :: any
   def send_msg_async(msg, server_name \\ @default_server_name) do
     GenServer.cast(server_name, {:osc_message, encode(msg)})
   end
