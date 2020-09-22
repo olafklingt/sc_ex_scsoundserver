@@ -5,6 +5,54 @@ defmodule SCSoundServer do
 
   @default_server_name :sc3_server
 
+  @spec await_server_startup(atom, non_neg_integer) :: atom
+  defp await_server_startup(server_name, sec) do
+    times = sec * 10
+
+    stream =
+      Stream.unfold(times, fn x ->
+        if SCSoundServer.ready?(server_name) != true && x != 0 do
+          :timer.sleep(100)
+          {:ok, x - 1}
+        else
+          nil
+        end
+      end)
+
+    Stream.run(stream)
+    SCSoundServer.ready?(server_name)
+  end
+
+  @default_init %SCSoundServer.Config{}
+
+  def start_link(config \\ @default_init) do
+    IO.puts("start_link(config: #{inspect(config.server_name)}")
+
+    s =
+      GenServer.start_link(
+        SCSoundServer.GenServer,
+        config,
+        name: config.server_name
+      )
+
+    t = await_server_startup(config.server_name, 5)
+
+    if t do
+      SCSoundServer.notify_sync(true, config.client_id, config.server_name)
+      s
+    else
+      q = SCSoundServer.quit(config.server_name)
+      q
+    end
+  end
+
+  def add_def(name, ugen) do
+    def = SCSynthDef.new(name, ugen)
+    bytes = SCSynthDef.encode_to_bytes(def)
+    :ok = SCSoundServer.send_synthdef_sync(bytes)
+    def
+  end
+
   @spec get_next_node_id(atom) :: integer()
   def get_next_node_id(server_name \\ @default_server_name) do
     GenServer.call(server_name, :get_next_node_id)
@@ -43,6 +91,11 @@ defmodule SCSoundServer do
   #     config.server_name
   #   )
   # end
+
+  @spec get(non_neg_integer, String.t(), atom) :: any
+  def get(synth_id, control_name, server_name \\ @default_server_name) do
+    GenServer.call(server_name, {:s_get, synth_id, control_name})
+  end
 
   @spec set(non_neg_integer, list, atom) :: any
   def set(synth_id, args_array, server_name \\ @default_server_name) do
@@ -146,6 +199,7 @@ defmodule SCSoundServer do
     data
   end
 
+  # todo get rid of this detour
   @spec send_msg_async(iodata, atom) :: any()
   def send_msg_async(msg, server_name \\ @default_server_name) do
     GenServer.cast(server_name, {:osc_message, encode(msg)})

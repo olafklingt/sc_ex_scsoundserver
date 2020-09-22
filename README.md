@@ -3,7 +3,7 @@
 
 ScExScSoundServer is a partial and opinionated implementation of an interface to supercollider in elixir.
 
-- Its partial because the supercollider DSP server SCSynth is more flexible than needed.
+- Its partial because the supercollider DSP server scsynth is more flexible than needed.
 
 - ~~Its partial because it is too much work to implement synthdef compilation.~~ (see sc_ex_synthdef library)
 

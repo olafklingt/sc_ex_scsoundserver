@@ -15,45 +15,6 @@ defmodule SCSoundServer.GenServer do
     {%{state | node_ids: tail}, n}
   end
 
-  @spec await_server_startup(atom, non_neg_integer) :: atom
-  defp await_server_startup(server_name, sec) do
-    times = sec * 10
-
-    stream =
-      Stream.unfold(times, fn x ->
-        if SCSoundServer.ready?(server_name) != true && x != 0 do
-          :timer.sleep(100)
-          {:ok, x - 1}
-        else
-          nil
-        end
-      end)
-
-    Stream.run(stream)
-    SCSoundServer.ready?(server_name)
-  end
-
-  @default_init %SCSoundServer.Config{}
-
-  def start_link(config \\ @default_init) do
-    s =
-      GenServer.start_link(
-        __MODULE__,
-        config,
-        name: config.server_name
-      )
-
-    t = await_server_startup(config.server_name, 5)
-
-    if t do
-      SCSoundServer.notify_sync(true, config.client_id, config.server_name)
-      s
-    else
-      q = SCSoundServer.quit(config.server_name)
-      q
-    end
-  end
-
   @impl true
   def init(
         config = %SCSoundServer.Config{
@@ -193,6 +154,15 @@ defmodule SCSoundServer.GenServer do
     data = encode(["g_new", nid, add_action_id, target_node_id])
 
     state = add_to_msg_query(state, :group_started, from)
+    :ok = :gen_udp.send(state.socket, state.config.ip, state.config.udp_port, data)
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_call({:s_get, synth_id, control_name}, from, state) do
+    data = encode(["s_get", synth_id, control_name])
+
+    state = add_to_msg_query(state, :n_set, from)
     :ok = :gen_udp.send(state.socket, state.config.ip, state.config.udp_port, data)
     {:noreply, state}
   end
@@ -502,6 +472,12 @@ defmodule SCSoundServer.GenServer do
     [nid | _] = arguments
     nnids = [nid | state.node_ids]
     %{state | node_ids: nnids}
+  end
+
+  def handle_osc(%OSC.Message{address: "/n_set", arguments: [_sid, _parameter, value]}, state) do
+    {from, queries} = Map.pop(state.queries, :n_set)
+    GenServer.reply(from, value)
+    %{state | queries: queries}
   end
 
   def handle_osc(message, state) do
