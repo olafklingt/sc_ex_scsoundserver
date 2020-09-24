@@ -44,37 +44,29 @@ defmodule SCSoundServer do
     end
   end
 
-  @spec add_def(String.t(), map) :: integer()
-  def add_def(name, ugen) do
-    def = SCSynthDef.new(name, ugen)
-    bytes = SCSynthDef.encode_to_bytes(def)
-    SCSoundServer.send_synthdef_sync(bytes)
-    def
-  end
-
   @spec get_next_node_id(atom) :: integer()
   def get_next_node_id(server_name \\ @default_server_name) do
-    GenServer.call(server_name, :get_next_node_id)
+    GenServer.call(server_name || @default_server_name, :get_next_node_id)
   end
 
   @spec ready?(atom) :: boolean
   def ready?(server_name \\ @default_server_name) do
-    GenServer.call(server_name, :is_ready)
+    GenServer.call(server_name || @default_server_name, :is_ready)
   end
 
   @spec reset(atom) :: any()
   def reset(server_name \\ @default_server_name) do
-    GenServer.cast(server_name, :reset)
+    GenServer.cast(server_name || @default_server_name, :reset)
   end
 
   @spec quit(atom) :: any()
   def quit(server_name \\ @default_server_name) do
-    GenServer.cast(server_name, :quit)
+    GenServer.cast(server_name || @default_server_name, :quit)
   end
 
   @spec dumpTree(atom) :: any()
   def dumpTree(server_name \\ @default_server_name) do
-    GenServer.cast(server_name, :dump_tree)
+    GenServer.cast(server_name || @default_server_name, :dump_tree)
   end
 
   # @spec new_group_sync(non_neg_integer, non_neg_integer, non_neg_integer, atom) :: any()
@@ -93,12 +85,12 @@ defmodule SCSoundServer do
 
   @spec get(non_neg_integer, String.t(), atom) :: any
   def get(synth_id, control_name, server_name \\ @default_server_name) do
-    GenServer.call(server_name, {:s_get, synth_id, control_name})
+    GenServer.call(server_name || @default_server_name, {:s_get, synth_id, control_name})
   end
 
   @spec set(non_neg_integer, list, atom) :: any
   def set(synth_id, args_array, server_name \\ @default_server_name) do
-    GenServer.cast(server_name, {:set, synth_id, args_array})
+    GenServer.cast(server_name || @default_server_name, {:set, synth_id, args_array})
   end
 
   @spec start_synth_sync(non_neg_integer, non_neg_integer, atom) :: any()
@@ -110,7 +102,7 @@ defmodule SCSoundServer do
         server_name \\ @default_server_name
       ) do
     GenServer.call(
-      server_name,
+      server_name || @default_server_name,
       {:start_synth_sync, {def_name, args, add_action_id, target_node_id}}
     )
   end
@@ -133,7 +125,7 @@ defmodule SCSoundServer do
         server_name \\ @default_server_name
       ) do
     GenServer.cast(
-      server_name,
+      server_name || @default_server_name,
       {:start_synth_async, {def_name, args, node_id, add_action_id, target_node_id}}
     )
   end
@@ -145,7 +137,7 @@ defmodule SCSoundServer do
         server_name \\ @default_server_name
       ) do
     GenServer.call(
-      server_name,
+      server_name || @default_server_name,
       {:new_group_sync, {add_action_id, target_node_id}}
     )
   end
@@ -158,7 +150,7 @@ defmodule SCSoundServer do
         server_name \\ @default_server_name
       ) do
     GenServer.call(
-      server_name,
+      server_name || @default_server_name,
       {:new_group_async, {node_id, add_action_id, target_node_id}}
     )
   end
@@ -170,7 +162,10 @@ defmodule SCSoundServer do
 
   @spec notify_async(boolean, integer, atom) :: any()
   def notify_async(flag, client_id, server_name \\ @default_server_name) do
-    GenServer.cast(server_name, {:osc_message, encode(["notify", (flag && 1) || 0, client_id])})
+    GenServer.cast(
+      server_name || @default_server_name,
+      {:osc_message, encode(["notify", (flag && 1) || 0, client_id])}
+    )
   end
 
   @spec notify_sync(boolean, integer, atom) :: any()
@@ -191,6 +186,15 @@ defmodule SCSoundServer do
     )
   end
 
+  def addToHead(), do: 0
+  def addToHead(), do: 0
+  def addToTail(), do: 1
+  def addBefore(), do: 2
+  def addAfter(), do: 3
+  def addReplace(), do: 4
+  def h(), do: 0
+  def t(), do: 1
+
   @spec encode(list) :: iodata
   def encode([path | args]) do
     {:ok, data} =
@@ -205,17 +209,17 @@ defmodule SCSoundServer do
   # todo get rid of this detour
   @spec send_msg_async([any, ...], atom | pid | {atom, any} | {atom, atom, any}) :: any
   def send_msg_async(msg, server_name \\ @default_server_name) do
-    GenServer.cast(server_name, {:osc_message, encode(msg)})
+    GenServer.cast(server_name || @default_server_name, {:osc_message, encode(msg)})
   end
 
   # @spec send_msg_async(iodata, map(), atom) :: any()
   # def send_msg_async(msg, callback = %{id: _id, func: _func}, server_name)
   #     when is_atom(server_name) do
-  #     GenServer.cast(server_name, {:osc_message, msg, callback})
+  #     GenServer.cast(server_name||@default_server_name, {:osc_message, msg, callback})
   # end
 
   @spec send_msg_sync(iodata, atom | {atom, integer}, atom) :: any()
   def send_msg_sync(msg, id, server_name \\ @default_server_name) do
-    GenServer.call(server_name, {:osc_message, encode(msg), id})
+    GenServer.call(server_name || @default_server_name, {:osc_message, encode(msg), id})
   end
 end
