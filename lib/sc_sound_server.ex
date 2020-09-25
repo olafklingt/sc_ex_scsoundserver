@@ -226,4 +226,23 @@ defmodule SCSoundServer do
   def send_msg_sync(msg, id, server_name \\ @default_server_name) do
     GenServer.call(server_name || @default_server_name, {:osc_message, encode(msg), id})
   end
+
+  def find_used_audio_bus(%SCSoundServer.Info.Group{children: c}) do
+    List.flatten(Enum.map(c, fn x -> find_used_audio_bus(x) end))
+  end
+
+  def find_used_audio_bus(%SCSoundServer.Info.Synth{arguments: a}) do
+    a = Enum.chunk_every(a, 2)
+
+    Enum.filter(a, fn [k, v] -> is_binary(v) end)
+    |> Enum.filter(fn [k, v] -> String.starts_with?(v, "a") end)
+    |> Enum.map(fn [k, v] ->
+      <<_::binary-size(1), rest::binary>> = v
+      String.to_integer(rest)
+    end)
+  end
+
+  # def get_unused_audio_bus(num, server_name \\ @default_server_name) do
+  #   SCSoundServer.g_queryTree(0)
+  # end
 end
