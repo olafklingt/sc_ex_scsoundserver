@@ -199,12 +199,34 @@ defmodule SCSoundServer do
   def h(), do: 0
   def t(), do: 1
 
+  def de_keyword_args(args) do
+    List.flatten(
+      Enum.map(args, fn x ->
+        if is_tuple(x) do
+          Tuple.to_list(x)
+        else
+          x
+        end
+      end)
+    )
+  end
+
+  def de_atom_args(args) do
+    Enum.map(args, fn x ->
+      if is_atom(x) do
+        Atom.to_string(x)
+      else
+        x
+      end
+    end)
+  end
+
   @spec encode(list) :: iodata
   def encode([path | args]) do
     {:ok, data} =
       OSC.encode(%OSC.Message{
         address: path,
-        arguments: args
+        arguments: de_atom_args(de_keyword_args(args))
       })
 
     data
