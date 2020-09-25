@@ -159,6 +159,14 @@ defmodule SCSoundServer.GenServer do
   end
 
   @impl true
+  def handle_call({:g_queryTree, synth_id}, from, state) do
+    data = encode(["g_queryTree", synth_id, 1])
+    state = add_to_msg_query(state, :g_queryTree_reply, from)
+    :ok = :gen_udp.send(state.socket, state.config.ip, state.config.udp_port, data)
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_call({:s_get, synth_id, control_name}, from, state) do
     data = encode(["s_get", synth_id, control_name])
 
@@ -477,6 +485,12 @@ defmodule SCSoundServer.GenServer do
   def handle_osc(%OSC.Message{address: "/n_set", arguments: [_sid, _parameter, value]}, state) do
     {from, queries} = Map.pop(state.queries, :n_set)
     GenServer.reply(from, value)
+    %{state | queries: queries}
+  end
+
+  def handle_osc(%OSC.Message{address: "/g_queryTree.reply", arguments: arguments}, state) do
+    {from, queries} = Map.pop(state.queries, :g_queryTree_reply)
+    GenServer.reply(from, SCSoundServer.Info.Group.map_preply(arguments))
     %{state | queries: queries}
   end
 

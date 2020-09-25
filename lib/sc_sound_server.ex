@@ -83,6 +83,11 @@ defmodule SCSoundServer do
   #   )
   # end
 
+  @spec queryTree(non_neg_integer, atom) :: any
+  def queryTree(group_id, server_name \\ @default_server_name) do
+    GenServer.call(server_name || @default_server_name, {:g_queryTree, group_id})
+  end
+
   @spec get(non_neg_integer, String.t(), atom) :: any
   def get(synth_id, control_name, server_name \\ @default_server_name) do
     GenServer.call(server_name || @default_server_name, {:s_get, synth_id, control_name})
@@ -186,7 +191,6 @@ defmodule SCSoundServer do
     )
   end
 
-  def addToHead(), do: 0
   def addToHead(), do: 0
   def addToTail(), do: 1
   def addBefore(), do: 2
