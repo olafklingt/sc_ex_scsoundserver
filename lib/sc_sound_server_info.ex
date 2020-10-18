@@ -43,7 +43,7 @@ defmodule SCSoundServer.Info.Synth do
 
   typedstruct do
     field(:id, integer, enforce: true)
-    field(:name, String.t(), enforce: true)
+    field(:name, atom, enforce: true)
     field(:arguments, list, enforce: true)
   end
 

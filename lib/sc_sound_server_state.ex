@@ -8,7 +8,7 @@ defmodule SCSoundServer.Config do
 
   typedstruct do
     field(:server_name, atom(), default: :sc3_server)
-    field(:ip, charlist(), default: '127.0.0.1')
+    field(:ip, charlist(), default: 'localhost')
     field(:udp_port, non_neg_integer(), default: 57110)
     field(:start_node_id, non_neg_integer(), default: 5000)
     field(:end_node_id, non_neg_integer(), default: 1_000_000)
@@ -32,5 +32,6 @@ defmodule SCSoundServer.State do
     field(:socket, pid())
     field(:node_ids, list, enforce: true)
     field(:queries, dafault: %{})
+    field(:one_shot_osc_queries, dafault: %{})
   end
 end

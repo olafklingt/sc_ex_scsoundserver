@@ -2,6 +2,11 @@ defmodule SCSoundServer.GenServer do
   use GenServer
   import SCSoundServer, only: [encode: 1]
 
+  defp send(socket, _ip, _udp_port, data) do
+    # :ok = :gen_udp.send(socket, ip, udp_port, data)
+    :ok = :gen_tcp.send(socket, data)
+  end
+
   defp get_next_node_id(state) do
     [n | tail] = state.node_ids
 
@@ -40,8 +45,9 @@ defmodule SCSoundServer.GenServer do
              {'SC_JACK_DEFAULT_INPUTS', 'system:capture_1,system:capture_2'}
            ]},
           args: [
-            "scsynth",
-            "-u",
+            # "scsynth",
+            "supernova",
+            "-t",
             to_string("#{udp_port}"),
             "-a",
             "1024",
@@ -53,21 +59,18 @@ defmodule SCSoundServer.GenServer do
             "0",
             "-l",
             "3",
+            "-T",
+            "4",
             "-m",
-            "32768"
+            "65536"
           ]
         ]
       )
 
-    {:ok, socket} = :gen_udp.open(0, [:binary, {:active, true}])
+    :timer.sleep(2000)
 
-    # return =
-    #   Registry.start_link(
-    #     keys: :unique,
-    #     name: registry_name
-    #   )
-    #
-    # {:ok, _reg} = return
+    # {:ok, socket} = :gen_udp.open(0, [:binary, {:active, true}])
+    {:ok, socket} = :gen_tcp.connect('localhost', udp_port, [:binary, active: true, packet: 4])
 
     {:ok,
      %SCSoundServer.State{
@@ -77,7 +80,8 @@ defmodule SCSoundServer.GenServer do
        port: port,
        socket: socket,
        node_ids: Enum.to_list(start_node_id..end_node_id),
-       queries: %{}
+       queries: %{},
+       one_shot_osc_queries: %{}
      }}
   end
 
@@ -93,40 +97,6 @@ defmodule SCSoundServer.GenServer do
     %SCSoundServer.State{} = state
     {:reply, state.ready, state}
   end
-
-  # @impl true
-  # def handle_call(:get_default_group, _from, state) do
-  #
-  #   if(state.default_group == nil) do
-  #     {:reply, nid, state} = get_next_node_id(state)
-  #
-  #     t = %SCTarget{
-  #       server_name: state.config.server_name,
-  #       registry_name: state.config.registry_name,
-  #       node_id: nid,
-  #       add_action_id: 0,
-  #       target_node_id: 0
-  #     }
-  #
-  #     r = SCGroup.start_link(t, :async)
-  #     {:ok, _dg} = r
-  #
-  #     default_group = %SCNode.Config{
-  #       server_name: state.config.server_name,
-  #       registry_name: state.config.registry_name,
-  #       node_id: t.node_id
-  #     }
-  #
-  #
-  #     %SCSoundServer.State{} = state
-  #
-  #     IO.inspect({:reply, default_group, %{state | default_group: default_group}})
-  #   else
-  #     %SCSoundServer.State{} = state
-  #
-  #     {:reply, state.default_group, state}
-  #   end
-  # end
 
   @impl true
   def handle_call(:get_next_node_id, _from, state) do
@@ -144,7 +114,7 @@ defmodule SCSoundServer.GenServer do
     data = encode(["s_new", def_name, nid, add_action_id, target_node_id] ++ args)
 
     state = add_to_msg_query(state, {:synth_started, nid}, from)
-    :ok = :gen_udp.send(state.socket, state.config.ip, state.config.udp_port, data)
+    :ok = send(state.socket, state.config.ip, state.config.udp_port, data)
     {:noreply, state}
   end
 
@@ -154,7 +124,17 @@ defmodule SCSoundServer.GenServer do
     data = encode(["g_new", nid, add_action_id, target_node_id])
 
     state = add_to_msg_query(state, :group_started, from)
-    :ok = :gen_udp.send(state.socket, state.config.ip, state.config.udp_port, data)
+    :ok = send(state.socket, state.config.ip, state.config.udp_port, data)
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_call({:new_parallel_group_sync, {add_action_id, target_node_id}}, from, state) do
+    {state, nid} = get_next_node_id(state)
+    data = encode(["p_new", nid, add_action_id, target_node_id])
+
+    state = add_to_msg_query(state, :group_started, from)
+    :ok = send(state.socket, state.config.ip, state.config.udp_port, data)
     {:noreply, state}
   end
 
@@ -162,7 +142,7 @@ defmodule SCSoundServer.GenServer do
   def handle_call({:g_queryTree, synth_id}, from, state) do
     data = encode(["g_queryTree", synth_id, 1])
     state = add_to_msg_query(state, :g_queryTree_reply, from)
-    :ok = :gen_udp.send(state.socket, state.config.ip, state.config.udp_port, data)
+    :ok = send(state.socket, state.config.ip, state.config.udp_port, data)
     {:noreply, state}
   end
 
@@ -171,7 +151,7 @@ defmodule SCSoundServer.GenServer do
     data = encode(["s_get", synth_id, control_name])
 
     state = add_to_msg_query(state, :n_set, from)
-    :ok = :gen_udp.send(state.socket, state.config.ip, state.config.udp_port, data)
+    :ok = send(state.socket, state.config.ip, state.config.udp_port, data)
     {:noreply, state}
   end
 
@@ -186,16 +166,39 @@ defmodule SCSoundServer.GenServer do
   @impl true
   def handle_call({:osc_message, data, id}, from, state) do
     state = add_to_msg_query(state, id, from)
-    :ok = :gen_udp.send(state.socket, state.config.ip, state.config.udp_port, data)
+    :ok = send(state.socket, state.config.ip, state.config.udp_port, data)
     %SCSoundServer.State{} = state
     {:noreply, state}
   end
 
   @doc "handle async set on the server"
   @impl true
+  def handle_cast({:remove_one_shot_osc_queries, message}, state) do
+    {_fun, queries} = Map.pop(state.one_shot_osc_queries, message)
+    state = %{state | one_shot_osc_queries: queries}
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast({:add_one_shot_osc_queries, id, fun}, state) do
+    queries = state.one_shot_osc_queries
+    queries = Map.put(queries, id, fun)
+    state = %{state | one_shot_osc_queries: queries}
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast({:replace_one_shot_osc_queries, id, fun}, state) do
+    queries = state.one_shot_osc_queries
+    queries = Map.put(queries, id, fun)
+    state = %{state | one_shot_osc_queries: queries}
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_cast({:set, synth_id, args_array}, state) do
     :ok =
-      :gen_udp.send(
+      send(
         state.socket,
         state.config.ip,
         state.config.udp_port,
@@ -205,11 +208,25 @@ defmodule SCSoundServer.GenServer do
     {:noreply, state}
   end
 
+  @doc "handle async free on the server"
+  @impl true
+  def handle_cast({:free, synth_id}, state) do
+    :ok =
+      send(
+        state.socket,
+        state.config.ip,
+        state.config.udp_port,
+        SCSoundServer.encode(["n_free", synth_id])
+      )
+
+    {:noreply, state}
+  end
+
   @impl true
   def handle_cast({:new_group_async, {node_id, add_action_id, target_node_id}}, state) do
     data = encode(["g_new", node_id, add_action_id, target_node_id])
 
-    :ok = :gen_udp.send(state.socket, state.config.ip, state.config.udp_port, data)
+    :ok = send(state.socket, state.config.ip, state.config.udp_port, data)
     {:noreply, state}
   end
 
@@ -220,24 +237,16 @@ defmodule SCSoundServer.GenServer do
       ) do
     data = encode(["s_new", def_name, node_id, add_action_id, target_node_id] ++ args)
 
-    :ok = :gen_udp.send(state.socket, state.config.ip, state.config.udp_port, data)
+    :ok = send(state.socket, state.config.ip, state.config.udp_port, data)
     {:noreply, state}
   end
 
   @impl true
   def handle_cast({:osc_message, data}, state) do
-    :ok = :gen_udp.send(state.socket, state.config.ip, state.config.udp_port, data)
+    :ok = send(state.socket, state.config.ip, state.config.udp_port, data)
     %SCSoundServer.State{} = state
     {:noreply, state}
   end
-
-  # @impl true
-  # def handle_cast({:osc_message, data, _callback = %{id: id, func: func}}, state) do
-  #   state = add_to_msg_query(state, id, func)
-  #   :ok = :gen_udp.send(state.socket, state.config.ip, state.config.udp_port, data)
-  #   %SCSoundServer.State{} = state
-  #   {:noreply, state}
-  # end
 
   @impl true
   def handle_cast(:reset, state) do
@@ -245,8 +254,8 @@ defmodule SCSoundServer.GenServer do
     ip = state.config.ip
     udp_port = state.config.udp_port
 
-    :gen_udp.send(socket, ip, udp_port, encode(["g_freeAll", 0]))
-    :gen_udp.send(socket, ip, udp_port, encode(["clearSched", []]))
+    send(socket, ip, udp_port, encode(["g_freeAll", 0]))
+    send(socket, ip, udp_port, encode(["clearSched", []]))
 
     %SCSoundServer.State{} = state
     {:noreply, %{state | next_node_id: state.config.start_node_id}}
@@ -254,7 +263,7 @@ defmodule SCSoundServer.GenServer do
 
   @impl true
   def handle_cast(:dump_tree, state) do
-    :gen_udp.send(
+    send(
       state.socket,
       state.config.ip,
       state.config.udp_port,
@@ -267,8 +276,9 @@ defmodule SCSoundServer.GenServer do
 
   @impl true
   def handle_cast(:quit, state) do
-    :gen_udp.send(state.socket, state.config.ip, state.config.udp_port, encode(["quit"]))
-    :gen_udp.close(state.socket)
+    send(state.socket, state.config.ip, state.config.udp_port, encode(["quit"]))
+    # :gen_udp.close(state.socket)
+    :gen_tcp.close(state.socket)
 
     # matcher = [{{:"$1", :"$2", :_}, [], [{{:"$1", :"$2"}}]}]
     #
@@ -313,6 +323,9 @@ defmodule SCSoundServer.GenServer do
       is_function(from) ->
         from.()
 
+      nil == from ->
+        nil
+
       # nil == from ->
       #   IO.puts("no response registered for group_started: #{inspect(arguments)}")
 
@@ -355,7 +368,10 @@ defmodule SCSoundServer.GenServer do
   @impl true
   def handle_info({_port, {:exit_status, status}}, state) do
     IO.puts("SCSoundServer exit status: #{status}")
-    :gen_udp.close(state.socket)
+
+    # :gen_udp.close(state.socket)
+    :gen_tcp.close(state.socket)
+
     %SCSoundServer.State{} = state
     {:stop, :normal, nil}
   end
@@ -368,7 +384,8 @@ defmodule SCSoundServer.GenServer do
       "\n==============SC-SoundServer=======\n#{latest_output}\n==================================="
     )
 
-    if latest_output =~ "SuperCollider 3 server ready" do
+    # if latest_output =~ "SuperCollider 3 server ready" do
+    if latest_output =~ "Supernova ready" do
       %SCSoundServer.State{} = state
       {:noreply, %{state | ready: true}}
     else
@@ -377,8 +394,13 @@ defmodule SCSoundServer.GenServer do
     end
   end
 
+  def handle_info({:tcp_closed, _socket}, _state) do
+    raise "why tcp close???"
+  end
+
   @impl true
-  def handle_info({:udp, _port, _ip, _uport, msg}, state) do
+  # def handle_info({:udp, _port, _ip, _uport, msg}, state) do
+  def handle_info({:tcp, _socket, msg}, state) do
     state =
       try do
         {:ok, p} = OSC.decode(msg)
@@ -387,7 +409,7 @@ defmodule SCSoundServer.GenServer do
         FunctionClauseError ->
           IO.puts(
             "Incoming OSC message is not parseable maybe because initial \"/\" is missing: #{
-              to_string(msg)
+              inspect(msg)
             }"
           )
 
@@ -412,6 +434,13 @@ defmodule SCSoundServer.GenServer do
     state
   end
 
+  def handle_osc(%OSC.Message{address: "/done", arguments: ["/notify", id]}, state) do
+    state = %{state | config: %{state.config | client_id: id}}
+    GenServer.cast(self(), {:server_response, :notify_set, :ok})
+    %SCSoundServer.State{} = state
+    state
+  end
+
   def handle_osc(%OSC.Message{address: "/done", arguments: ["/d_recv"]}, state) do
     GenServer.cast(self(), {:server_response, :send_synthdef_done, :ok})
     %SCSoundServer.State{} = state
@@ -424,7 +453,6 @@ defmodule SCSoundServer.GenServer do
     state
   end
 
-  # log creation of new synth
   def handle_osc(
         %OSC.Message{
           address: "/n_go",
@@ -446,7 +474,6 @@ defmodule SCSoundServer.GenServer do
     state
   end
 
-  # log creation of new group
   def handle_osc(
         %OSC.Message{
           address: "/n_go",
@@ -478,7 +505,7 @@ defmodule SCSoundServer.GenServer do
 
   def handle_osc(%OSC.Message{address: "/n_end", arguments: arguments}, state) do
     [nid | _] = arguments
-    nnids = [nid | state.node_ids]
+    nnids = state.node_ids ++ [nid]
     %{state | node_ids: nnids}
   end
 
@@ -494,16 +521,23 @@ defmodule SCSoundServer.GenServer do
     %{state | queries: queries}
   end
 
-  def handle_osc(message, state) do
-    IO.puts("uncatched osc message:")
-    IO.puts("#{inspect(message)}")
-    %SCSoundServer.State{} = state
-    state
+  def handle_osc(message = %OSC.Message{address: _, arguments: _}, state) do
+    {from, queries} = Map.pop(state.one_shot_osc_queries, message)
+
+    if is_nil(from) do
+      IO.puts("uncatched osc message:")
+      IO.puts("#{inspect(message)}")
+      %SCSoundServer.State{} = state
+      state
+    else
+      from.()
+      %{state | one_shot_osc_queries: queries}
+    end
   end
 
   @impl true
   def terminate(_reason, _state) do
-    IO.puts("soundserver terminate wait 1 sec before restart")
+    IO.puts("soundserver terminate wait 1 sec until supercollider process is dead")
     :timer.sleep(1000)
   end
 end

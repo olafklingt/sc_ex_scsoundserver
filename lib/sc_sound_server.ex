@@ -26,6 +26,9 @@ defmodule SCSoundServer do
   @default_init %SCSoundServer.Config{}
 
   def start_link(config \\ @default_init) do
+    SCSoundServer.AudioBusAllocator.start_link(1024, 4)
+    SCSoundServer.ControlBusAllocator.start_link(1024, 4)
+
     s =
       GenServer.start_link(
         SCSoundServer.GenServer,
@@ -69,20 +72,6 @@ defmodule SCSoundServer do
     GenServer.cast(server_name || @default_server_name, :dump_tree)
   end
 
-  # @spec new_group_sync(non_neg_integer, non_neg_integer, non_neg_integer, atom) :: any()
-  # def new_group_sync(
-  #       node_id,
-  #       add_action_id \\ 0,
-  #       target_node_id \\ 0,
-  #       server_name \\ @default_server_name
-  #     ) do
-  #   SCSoundServer.send_msg_sync(
-  #     ["g_new", nid, add_action_id, target_node_id],
-  #     :group_started,
-  #     config.server_name
-  #   )
-  # end
-
   @spec queryTree(non_neg_integer, atom) :: any
   def queryTree(group_id, server_name \\ @default_server_name) do
     GenServer.call(server_name || @default_server_name, {:g_queryTree, group_id})
@@ -96,6 +85,11 @@ defmodule SCSoundServer do
   @spec set(non_neg_integer, list, atom) :: any
   def set(synth_id, args_array, server_name \\ @default_server_name) do
     GenServer.cast(server_name || @default_server_name, {:set, synth_id, args_array})
+  end
+
+  @spec free(non_neg_integer, atom) :: any
+  def free(synth_id, server_name \\ @default_server_name) do
+    GenServer.cast(server_name || @default_server_name, {:free, synth_id})
   end
 
   @spec start_synth_sync(non_neg_integer, non_neg_integer, atom) :: any()
@@ -147,6 +141,18 @@ defmodule SCSoundServer do
     )
   end
 
+  @spec new_parallel_group_sync(non_neg_integer, non_neg_integer, atom) :: any()
+  def new_parallel_group_sync(
+        add_action_id \\ 0,
+        target_node_id \\ 0,
+        server_name \\ @default_server_name
+      ) do
+    GenServer.call(
+      server_name || @default_server_name,
+      {:new_parallel_group_sync, {add_action_id, target_node_id}}
+    )
+  end
+
   @spec new_group_async(non_neg_integer, non_neg_integer, non_neg_integer, atom) :: any()
   def new_group_async(
         node_id,
@@ -154,7 +160,7 @@ defmodule SCSoundServer do
         target_node_id \\ 0,
         server_name \\ @default_server_name
       ) do
-    GenServer.call(
+    GenServer.cast(
       server_name || @default_server_name,
       {:new_group_async, {node_id, add_action_id, target_node_id}}
     )
@@ -169,14 +175,14 @@ defmodule SCSoundServer do
   def notify_async(flag, client_id, server_name \\ @default_server_name) do
     GenServer.cast(
       server_name || @default_server_name,
-      {:osc_message, encode(["notify", (flag && 1) || 0, client_id])}
+      {:osc_message, encode(["/notify", (flag && 1) || 0, client_id])}
     )
   end
 
   @spec notify_sync(boolean, integer, atom) :: any()
   def notify_sync(flag, client_id, server_name \\ @default_server_name) do
     send_msg_sync(
-      ["notify", (flag && 1) || 0, client_id],
+      ["/notify", (flag && 1) || 0, client_id],
       :notify_set,
       server_name
     )
@@ -248,23 +254,4 @@ defmodule SCSoundServer do
   def send_msg_sync(msg, id, server_name \\ @default_server_name) do
     GenServer.call(server_name || @default_server_name, {:osc_message, encode(msg), id})
   end
-
-  def find_used_audio_bus(%SCSoundServer.Info.Group{children: c}) do
-    List.flatten(Enum.map(c, fn x -> find_used_audio_bus(x) end))
-  end
-
-  def find_used_audio_bus(%SCSoundServer.Info.Synth{arguments: a}) do
-    a = Enum.chunk_every(a, 2)
-
-    Enum.filter(a, fn [k, v] -> is_binary(v) end)
-    |> Enum.filter(fn [k, v] -> String.starts_with?(v, "a") end)
-    |> Enum.map(fn [k, v] ->
-      <<_::binary-size(1), rest::binary>> = v
-      String.to_integer(rest)
-    end)
-  end
-
-  # def get_unused_audio_bus(num, server_name \\ @default_server_name) do
-  #   SCSoundServer.g_queryTree(0)
-  # end
 end
