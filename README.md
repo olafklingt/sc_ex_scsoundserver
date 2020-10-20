@@ -1,6 +1,6 @@
 # ExSCSoundServer
 
-This project provides a proof-of-concept implementation of an [Elixir](https://elixir-lang.org/) scripting interface to [SuperCollider](https://supercollider.github.io/)'s *scsynth* DSP server.
+This project provides a proof-of-concept implementation of an [Elixir](https://elixir-lang.org/) scripting interface to [SuperCollider](https://supercollider.github.io/)'s *scsynth* and *supernova* DSP server.
 
 🌴The idea was motivated by my personal use of SuperCollider and my preference for using Elixir as a scripting language. Contributors are encouraged to fork this repository and extend the functionality towards a more comprehensive feature set.
 
@@ -34,6 +34,7 @@ TODO
 ## TODO
 
 - [x] Implement synchronous and asynchronous calls to scsynth
+- [ ] make api more consistent
 - [ ] Rename the repository to reflect more clearly that it isn't a sound server
 
 ## Related Repositories
@@ -59,4 +60,4 @@ TODO
 
 ## License
 
-TODO
+GNU AFFERO GENERAL PUBLIC LICENSE
