@@ -1,32 +1,13 @@
 # ExSCSoundServer
 
-(Work in Progress)
+This project provides a proof-of-concept implementation of an [Elixir](https://elixir-lang.org/) scripting interface to [SuperCollider](https://supercollider.github.io/)'s *scsynth* DSP server.
 
-ScExScSoundServer is a partial and opinionated implementation of an interface to SuperCollider in Elixir.
+🌴The idea was motivated by my personal use of SuperCollider and my preference for using Elixir as a scripting language. Contributors are encouraged to fork this repository and extend the functionality towards a more comprehensive feature set.
 
-- Its partial because the supercollider DSP server "scsynth" is more flexible than needed.
+The API was inspired by SuperCollider's own *sclang* API and shares many similarities. Two important differences are:
+1. Only a subset of the flexibility of *sclang* is implemented here. This is because I focused on features that I personally use.
+2. While *sclang* relies exclusively on **asynchronous** calls to *scsynth*, ExScSoundServer provides an additional option for making **synchronous** calls. Synchronous calls allow you to use the return values from *scsynth* directly (see examples below).
 
-- Its partial because I simply don't make use of some aspects of supercollider.
-
-- Its partial because SuperCollider provides different ways to do the same thing of which I choose one.
-
-- It is partial because it is simply a big project. It is unlikely to be more than a *proof of concept* soon.
-
-It is opinionated because I dislike in SCLang that all interactions with the sound server are asynchronous. I provide the option to start and stop a synth in a synchronous manner utilizing the servers response messages.
-
-# Related Repositories
-
-[ExSCSynthDef](https://github.com/olafklingt/sc_ex_synthdef)
-A experimental SynthDef compiler in Elixir, that treats UGens as functions (work in progress).
-
-[ExSCLib](https://github.com/olafklingt/sc_ex_lib)
-Helpful function and concepts from SuperCollider for Elixir (work in progress).
-
-[ExSCLang](https://github.com/olafklingt/sc_ex_sclang)
-Elixir port to a SuperCollider Language instance (proof of concept).
-
-[aXotypixusc](https://github.com/olafklingt/axotypixusc)
-A eXample Of a TinY PIano in elIXir USing SuperCollider (example).
 
 ## Installation
 
@@ -37,3 +18,45 @@ def deps do
   ]
 end
 ```
+
+## How to use
+
+TODO
+
+## Examples
+
+TODO
+
+## API Reference
+
+TODO
+
+## TODO
+
+- [x] Implement synchronous and asynchronous calls to scsynth
+- [ ] Rename the repository to reflect more clearly that it isn't a sound server
+
+## Related Repositories
+
+The following projects also combine Elixir with SuperCollider. They are independent proof-of-concept projects and examples.
+
+[ExSCLib](https://github.com/olafklingt/sc_ex_lib)
+Helpful functions and concepts from SuperCollider for Elixir
+
+[ExSCSynthDef](https://github.com/olafklingt/sc_ex_synthdef)
+An experimental SynthDef compiler in Elixir that treats UGens as functions
+
+[ExSCLang](https://github.com/olafklingt/sc_ex_sclang)
+Elixir port to a SuperCollider language instance
+
+[aXotypixusc](https://github.com/olafklingt/axotypixusc)
+A eXample Of a TinY PIano in elIXir USing SuperCollider
+
+
+## Contribute
+
+TODO
+
+## License
+
+TODO
