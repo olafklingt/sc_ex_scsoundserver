@@ -34,7 +34,7 @@ TODO
 ## TODO
 
 - [x] Implement synchronous and asynchronous calls to scsynth
-- [ ] make api more consistent
+- [ ] make function names in the API more consistent
 - [ ] Rename the repository to reflect more clearly that it isn't a sound server
 
 ## Related Repositories
