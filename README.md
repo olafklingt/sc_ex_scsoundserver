@@ -35,14 +35,13 @@ TODO
 
 - [x] Implement synchronous and asynchronous calls to scsynth
 - [ ] make function names in the API more consistent
-- [ ] Rename the repository to reflect more clearly that it isn't a sound server
+- [ ] server options (in the SuperCollider sense)
+- [ ] application with configuration (in the Elixir sense)
+- [ ] Rename the repository to reflect more clearly that it isn't a sound server and not a synthesizer and not a stellar explosion.
 
 ## Related Repositories
 
 The following projects also combine Elixir with SuperCollider. They are independent proof-of-concept projects and examples.
-
-[ExSCLib](https://github.com/olafklingt/sc_ex_lib)
-Helpful functions and concepts from SuperCollider for Elixir
 
 [ExSCSynthDef](https://github.com/olafklingt/sc_ex_synthdef)
 An experimental SynthDef compiler in Elixir that treats UGens as functions
