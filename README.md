@@ -19,13 +19,10 @@ def deps do
 end
 ```
 
-## How to use
+## How to use and example
 
-TODO
+A example midi piano using my libraries is [Axotypixusc](https://github.com/olafklingt/axotypixusc) "A eXample Of a TinY PIano in elIXir USing SuperCollider".
 
-## Examples
-
-TODO
 
 ## API Reference
 
