@@ -19,11 +19,6 @@ def deps do
 end
 ```
 
-## How to use and example
-
-A example midi piano using my libraries is [Axotypixusc](https://github.com/olafklingt/axotypixusc) "A eXample Of a TinY PIano in elIXir USing SuperCollider".
-
-
 ## API Reference
 
 TODO
@@ -46,8 +41,9 @@ An experimental SynthDef compiler in Elixir that treats UGens as functions
 [ExSCLang](https://github.com/olafklingt/sc_ex_sclang)
 Elixir port to a SuperCollider language instance
 
-[aXotypixusc](https://github.com/olafklingt/axotypixusc)
-A eXample Of a TinY PIano in elIXir USing SuperCollider
+## How to use and example
+
+A example midi piano using my libraries is [Axotypixusc](https://github.com/olafklingt/axotypixusc) "A eXample Of a TinY PIano in elIXir USing SuperCollider".
 
 
 ## Contribute
