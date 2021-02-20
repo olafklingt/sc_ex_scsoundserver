@@ -2,7 +2,6 @@ defmodule SCSoundServer do
   @moduledoc """
   Interface to SCSoundServers.
   """
-
   @default_server_name :sc3_server
 
   @spec await_server_startup(atom, non_neg_integer) :: atom
@@ -170,7 +169,15 @@ defmodule SCSoundServer do
   def send_synthdef_async(defbinary, server_name \\ @default_server_name) do
     GenServer.cast(
       server_name || @default_server_name,
-      {:send_synthdef, {"/d_recv", defbinary}}
+      {:send_synthdef_async, {"/d_recv", defbinary}}
+    )
+  end
+
+  @spec send_bundle_async(binary, atom) :: any()
+  def send_bundle_async(bundle, server_name \\ @default_server_name) do
+    GenServer.cast(
+      server_name || @default_server_name,
+      {:send_bundle_async, bundle}
     )
   end
 
@@ -221,54 +228,4 @@ defmodule SCSoundServer do
   def addReplace(), do: 4
   def h(), do: 0
   def t(), do: 1
-
-  def de_keyword_args(args) do
-    List.flatten(
-      Enum.map(args, fn x ->
-        if is_tuple(x) do
-          Tuple.to_list(x)
-        else
-          x
-        end
-      end)
-    )
-  end
-
-  def de_atom_args(args) do
-    Enum.map(args, fn x ->
-      if is_atom(x) do
-        Atom.to_string(x)
-      else
-        x
-      end
-    end)
-  end
-
-  @spec encode(list) :: iodata
-  def encode([path | args]) do
-    {:ok, data} =
-      OSC.encode(%OSC.Message{
-        address: path,
-        arguments: de_atom_args(de_keyword_args(args))
-      })
-
-    data
-  end
-
-  # todo get rid of this detour
-  # @spec send_msg_async([any, ...], atom | pid | {atom, any} | {atom, atom, any}) :: any
-  # def send_msg_async(msg, server_name \\ @default_server_name) do
-  #   GenServer.cast(server_name || @default_server_name, {:osc_message, encode(msg)})
-  # end
-
-  # @spec send_msg_async(iodata, map(), atom) :: any()
-  # def send_msg_async(msg, callback = %{id: _id, func: _func}, server_name)
-  #     when is_atom(server_name) do
-  #     GenServer.cast(server_name||@default_server_name, {:osc_message, msg, callback})
-  # end
-
-  # @spec send_msg_sync(iodata, atom | {atom, integer}, atom) :: any()
-  # def send_msg_sync(msg, id, server_name \\ @default_server_name) do
-  #   GenServer.call(server_name || @default_server_name, {:osc_message, encode(msg), id})
-  # end
 end

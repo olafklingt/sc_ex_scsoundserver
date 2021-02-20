@@ -15,6 +15,10 @@ defmodule SCSoundServer.AudioBusAllocator do
     String.to_integer(rest)
   end
 
+  def bus_int_to_id(bus_int) do
+    "a#{bus_int}"
+  end
+
   def pop_bus_id() do
     {_, id} = pop_bus()
     id
@@ -26,8 +30,6 @@ defmodule SCSoundServer.AudioBusAllocator do
   end
 
   def pop_bus() do
-    # IO.inspect({:aba, length(state)})
-
     Agent.get_and_update(__MODULE__, fn state ->
       [n | tail] = state
       {n, tail}
@@ -62,8 +64,12 @@ defmodule SCSoundServer.ControlBusAllocator do
   end
 
   def bus_id_to_int(id) do
-    <<"a", rest::binary>> = id
+    <<"c", rest::binary>> = id
     String.to_integer(rest)
+  end
+
+  def bus_int_to_id(bus_int) do
+    "c#{bus_int}"
   end
 
   def pop_bus_id() do
@@ -78,7 +84,6 @@ defmodule SCSoundServer.ControlBusAllocator do
 
   def pop_bus() do
     Agent.get_and_update(__MODULE__, fn state ->
-      # IO.inspect({:cba, length(state)})
       [n | tail] = state
       {n, tail}
     end)

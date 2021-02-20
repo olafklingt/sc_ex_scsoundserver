@@ -15,11 +15,7 @@ defmodule SCSoundServer.Info.Group do
     {[], []}
   end
 
-  def make(list) do
-    [id | tail] = list
-
-    [number | tail] = tail
-
+  def make([id, number | tail]) do
     if(number < 0) do
       SCSoundServer.Info.Synth.make(id, tail)
     else
@@ -47,10 +43,8 @@ defmodule SCSoundServer.Info.Synth do
     field(:arguments, list, enforce: true)
   end
 
-  def make(id, list) do
-    [name | tail] = list
-    [number | tail] = tail
-    {arguments, tail} = Enum.split(tail, number * 2)
+  def make(id, [name, number | args_tail]) do
+    {arguments, tail} = Enum.split(args_tail, number * 2)
     arguments = args_to_keylist(arguments)
 
     {%SCSoundServer.Info.Synth{id: id, name: String.to_atom(name), arguments: arguments}, tail}
@@ -106,12 +100,23 @@ defmodule SCSoundServer.Info.Synth do
 end
 
 defmodule SCSoundServer.Info do
+  @spec flatten(SCSoundServer.Info.Group) :: list[SCSoundServer.Info.Synth]
+  def flatten(g = %SCSoundServer.Info.Group{}) do
+    Enum.flat_map(g.children, &flatten/1)
+  end
+
+  @spec flatten(SCSoundServer.Info.Synth) :: List[SCSoundServer.Info.Synth]
+  def flatten(s = %SCSoundServer.Info.Synth{}) do
+    [s]
+  end
+
   def find_used_audio_bus(%SCSoundServer.Info.Group{children: c}) do
     List.flatten(Enum.map(c, fn x -> find_used_audio_bus(x) end))
   end
 
   def find_used_audio_bus(%SCSoundServer.Info.Synth{arguments: a}) do
-    Enum.filter(a, fn {_k, v} -> is_binary(v) end)
+    a
+    |> Enum.filter(fn {_k, v} -> is_binary(v) end)
     |> Enum.filter(fn {_k, v} -> String.starts_with?(v, "a") end)
     |> Enum.map(fn {k, v} ->
       <<_::binary-size(1), rest::binary>> = v
@@ -124,7 +129,8 @@ defmodule SCSoundServer.Info do
   end
 
   def find_used_control_bus(%SCSoundServer.Info.Synth{arguments: a}) do
-    Enum.filter(a, fn {_k, v} -> is_binary(v) end)
+    a
+    |> Enum.filter(fn {_k, v} -> is_binary(v) end)
     |> Enum.filter(fn {_k, v} -> String.starts_with?(v, "c") end)
     |> Enum.map(fn {k, v} ->
       <<_::binary-size(1), rest::binary>> = v
@@ -135,57 +141,109 @@ defmodule SCSoundServer.Info do
   def find_last_synth_writing_on_two_audio_busses(
         bus_int,
         other_bus_int,
-        %SCSoundServer.Info.Group{
-          children: c
-        },
+        g = %SCSoundServer.Info.Group{},
         def_arg_rates
       ) do
-    c
+    sl = SCSoundServer.Info.flatten(g)
+
+    sl
     |> Enum.reverse()
-    |> Enum.map(fn x ->
-      if(def_arg_rates[x.name][:outrate] == :audio) do
-        find_last_synth_writing_on_two_busses(bus_int, other_bus_int, x)
-      else
-        []
-      end
-    end)
-    |> List.flatten()
+    |> Enum.filter(&is_audio_synth(&1, def_arg_rates))
+    |> Enum.filter(&is_synth_writing_on_either_bus(bus_int, other_bus_int, &1))
     |> List.first()
+  end
+
+  defp is_audio_synth(s = %SCSoundServer.Info.Synth{}, def_arg_rates) do
+    def_arg_rates[s.name][:outrate] == :audio
   end
 
   def find_last_synth_writing_on_two_control_busses(
         bus_int,
         other_bus_int,
-        %SCSoundServer.Info.Group{
-          children: c
+        g = %SCSoundServer.Info.Group{
+          children: _c
         },
         def_arg_rates
       ) do
-    c
+    sl = SCSoundServer.Info.flatten(g)
+
+    sl
     |> Enum.reverse()
-    |> Enum.map(fn x ->
-      if(def_arg_rates[x.name][:outrate] == :control) do
-        find_last_synth_writing_on_two_busses(bus_int, other_bus_int, x)
-      else
-        []
-      end
-    end)
-    |> List.flatten()
+    |> Enum.filter(&is_control_synth(&1, def_arg_rates))
+    |> Enum.filter(&is_synth_writing_on_either_bus(bus_int, other_bus_int, &1))
     |> List.first()
   end
 
-  def find_last_synth_writing_on_two_busses(
+  defp is_control_synth(s = %SCSoundServer.Info.Synth{}, def_arg_rates) do
+    def_arg_rates[s.name][:outrate] == :control
+  end
+
+  def is_synth_writing_on_either_bus(
         bus_int,
         other_bus_int,
         s = %SCSoundServer.Info.Synth{}
       ) do
-    v = s.arguments[:out]
+    v = s.arguments[:_out]
+    bus_int || v == other_bus_int
+  end
 
-    if(v == bus_int || v == other_bus_int) do
-      s.id
+  def path_to_audio_bus(bus_int, info_tree, def_arg_rates, path \\ []) do
+    synth = find_last_synth_reading_from_audio_bus(bus_int, info_tree, def_arg_rates)
+    [{arg, _bus_id}] = Enum.filter(synth.arguments, fn {_k, v} -> v == "a#{trunc(bus_int)}" end)
+
+    if synth.arguments[:_out] == 0.0 do
+      path = [:/, :ar_arguments, arg] ++ path
+      path
     else
-      []
+      path =
+        path_to_audio_bus(
+          synth.arguments[:_out],
+          info_tree,
+          def_arg_rates,
+          [:ar_arguments, arg] ++ path
+        )
+
+      path
     end
+  end
+
+  def find_last_synth_reading_from_audio_bus(
+        bus_int,
+        info_tree,
+        def_arg_rates
+      ) do
+    List.first(find_synth_reading_from_audio_bus(bus_int, info_tree, def_arg_rates))
+  end
+
+  def find_synth_reading_from_audio_bus(
+        bus_int,
+        g = %SCSoundServer.Info.Group{},
+        def_arg_rates
+      ) do
+    sl = SCSoundServer.Info.flatten(g)
+
+    sl
+    |> Enum.reverse()
+    |> Enum.filter(&is_audio_synth(&1, def_arg_rates))
+    |> Enum.filter(&is_synth_reading_from_bus(bus_int, &1))
+  end
+
+  def is_synth_reading_from_bus(
+        bus_int,
+        s = %SCSoundServer.Info.Synth{}
+      ) do
+    s.arguments
+    |> Enum.filter(&is_not_out_parameter/1)
+    |> Enum.filter(&is_parameter_reading_from_bus(&1, bus_int))
+    |> length() > 0
+  end
+
+  defp is_not_out_parameter({k, _v}) do
+    !String.starts_with?(Atom.to_string(k), "_")
+  end
+
+  defp is_parameter_reading_from_bus({_k, v}, bus_int) do
+    v == "a#{trunc(bus_int)}"
   end
 
   def find_last_synth_writing_on_audio_bus(
@@ -198,30 +256,33 @@ defmodule SCSoundServer.Info do
 
   def find_synth_writing_on_audio_bus(
         bus_int,
-        %SCSoundServer.Info.Group{children: c},
+        g = %SCSoundServer.Info.Group{},
         def_arg_rates
       ) do
-    List.flatten(
-      Enum.map(Enum.reverse(c), fn x ->
-        if(:audio == def_arg_rates[x.name][:outrate]) do
-          find_synth_writing_on_audio_bus(bus_int, x)
-        else
-          []
-        end
-      end)
-    )
+    sl = SCSoundServer.Info.flatten(g)
+
+    sl
+    |> Enum.reverse()
+    |> Enum.filter(&is_audio_synth(&1, def_arg_rates))
+    |> Enum.filter(&is_synth_writing_on_bus(bus_int, &1))
   end
 
-  def find_synth_writing_on_audio_bus(
+  def is_synth_writing_on_bus(
         bus_int,
-        s = %SCSoundServer.Info.Synth{name: _name, arguments: a}
+        s = %SCSoundServer.Info.Synth{}
       ) do
-    Enum.filter(a, fn {k, _v} ->
-      String.starts_with?(Atom.to_string(k), "out")
-    end)
-    |> Enum.map(fn {_k, v} ->
-      if(v == bus_int, do: s, else: [])
-    end)
+    s.arguments
+    |> Enum.filter(&is_out_parameter/1)
+    |> Enum.filter(&is_parameter_writing_to_bus(&1, bus_int))
+    |> length() > 0
+  end
+
+  defp is_out_parameter({k, _v}) do
+    String.starts_with?(Atom.to_string(k), "_out")
+  end
+
+  defp is_parameter_writing_to_bus({_k, v}, bus_int) do
+    v == bus_int
   end
 
   def find_last_synth_writing_on_control_bus(
@@ -235,31 +296,16 @@ defmodule SCSoundServer.Info do
 
   def find_synth_writing_on_control_bus(
         bus_int,
-        %SCSoundServer.Info.Group{children: c},
+        g = %SCSoundServer.Info.Group{},
         def_arg_rates
       )
       when is_list(def_arg_rates) do
-    List.flatten(
-      Enum.map(Enum.reverse(c), fn x ->
-        if(:control == def_arg_rates[x.name][:outrate]) do
-          find_synth_writing_on_control_bus(bus_int, x)
-        else
-          []
-        end
-      end)
-    )
-  end
+    sl = SCSoundServer.Info.flatten(g)
 
-  def find_synth_writing_on_control_bus(
-        bus_int,
-        s = %SCSoundServer.Info.Synth{name: _name, arguments: a}
-      ) do
-    Enum.filter(a, fn {k, _v} ->
-      String.starts_with?(Atom.to_string(k), "out")
-    end)
-    |> Enum.map(fn {_k, v} ->
-      if(v == bus_int, do: s, else: [])
-    end)
+    sl
+    |> Enum.reverse()
+    |> Enum.filter(&is_control_synth(&1, def_arg_rates))
+    |> Enum.filter(&is_synth_writing_on_bus(bus_int, &1))
   end
 
   def find_synth(test_fun, synth = %SCSoundServer.Info.Synth{}) do
@@ -308,10 +354,11 @@ defmodule SCSoundServer.Info do
     outrate = def_arg_rates[synth_info.name][:outrate]
 
     {_out, bus_int} =
-      Enum.find(a, fn {k, _v} -> String.starts_with?(Atom.to_string(k), "out") end)
+      Enum.find(a, fn {k, _v} -> String.starts_with?(Atom.to_string(k), "_out") end)
 
     bus_int =
-      if(synth_info.name == "outmixer") do
+      if(Atom.to_string(synth_info.name) =~ "outmixer") do
+        # IO.inspect({"find_used_busses_r", synth_info})
         0.0
       else
         bus_int
