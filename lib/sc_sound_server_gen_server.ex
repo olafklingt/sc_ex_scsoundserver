@@ -12,18 +12,6 @@ defmodule SCSoundServer.GenServer do
       end
   end
 
-  defp get_next_node_id(state = %SCSoundServer.State{}) do
-    [n | tail] = state.node_ids
-
-    if n > state.config.end_node_id do
-      IO.puts(
-        "Next node ID is out of range #{n}. It should be smaller than #{state.config.end_node_id} which is end_node_id as specified in SCSoundServer.start_link."
-      )
-    end
-
-    {%{state | node_ids: tail}, n}
-  end
-
   defp args_array(config) do
     List.flatten([
       [List.to_string(config.application)],
@@ -122,9 +110,7 @@ defmodule SCSoundServer.GenServer do
   def init(
         config = %SCSoundServer.Config{
           protocol: protocol,
-          port: netport,
-          start_node_id: start_node_id,
-          end_node_id: end_node_id
+          port: netport
         }
       ) do
     path = Path.dirname(__ENV__.file)
@@ -148,7 +134,6 @@ defmodule SCSoundServer.GenServer do
       exit_status: nil,
       port: export,
       socket: socket,
-      node_ids: Enum.to_list(start_node_id..end_node_id),
       queries: %{},
       one_shot_osc_queries: %{}
     }
@@ -169,18 +154,12 @@ defmodule SCSoundServer.GenServer do
   end
 
   @impl true
-  def handle_call(:get_next_node_id, _from, state = %SCSoundServer.State{}) do
-    {state, nid} = get_next_node_id(state)
-    {:reply, nid, state}
-  end
-
-  @impl true
   def handle_call(
         {:start_synth_sync, {def_name, args, add_action_id, target_node_id}},
         from,
         state = %SCSoundServer.State{}
       ) do
-    {state, nid} = get_next_node_id(state)
+    nid = SCSoundServer.get_next_node_id()
 
     {:ok, bin} =
       OSC.encode(
@@ -198,7 +177,7 @@ defmodule SCSoundServer.GenServer do
         from,
         state = %SCSoundServer.State{}
       ) do
-    {state, nid} = get_next_node_id(state)
+    nid = SCSoundServer.get_next_node_id()
 
     {:ok, bin} = OSC.encode(SCSoundServer.Message.new_group(nid, add_action_id, target_node_id))
 
@@ -213,7 +192,7 @@ defmodule SCSoundServer.GenServer do
         from,
         state = %SCSoundServer.State{}
       ) do
-    {state, nid} = get_next_node_id(state)
+    nid = SCSoundServer.get_next_node_id()
 
     {:ok, bin} =
       OSC.encode(SCSoundServer.Message.new_parallel_group(nid, add_action_id, target_node_id))
@@ -240,21 +219,17 @@ defmodule SCSoundServer.GenServer do
     {:noreply, state}
   end
 
-  # the following is the reason why i should do it differently:
+  # i don't use :osc_message anymore now I construct the messages in dedicated message functions
+  # primarily because i want to be able to create bundles
 
-  # because I serialize OSC Messages before I send them,
-  # handle_casts only get binaries
-  # thats why i also implemented it this way for handle_call
-  # because of this i need to add a explicit id parameter
-  # the id is what is used by the explicitly implemented
-  # handle_cast(...) to identify the query to be released ...
-  @impl true
-  def handle_call({:osc_message, bin, id}, from, state = %SCSoundServer.State{}) do
-    state = add_to_msg_query(state, id, from)
-    :ok = sc_send(state, bin)
-
-    {:noreply, state}
-  end
+  # currently i don't use this:
+  # @impl true
+  # def handle_call({:osc_message, bin, id}, from, state = %SCSoundServer.State{}) do
+  #   state = add_to_msg_query(state, id, from)
+  #   :ok = sc_send(state, bin)
+  #
+  #   {:noreply, state}
+  # end
 
   @impl true
   def handle_call({:notify_sync, flag, cid}, from, state = %SCSoundServer.State{}) do
@@ -325,6 +300,10 @@ defmodule SCSoundServer.GenServer do
     {:noreply, state}
   end
 
+  # i don't use :osc_message anymore now I construct the messages in dedicated message functions
+  # primarily because i want to be able to create bundles
+
+  # currently i don't use this:
   @impl true
   def handle_cast({:osc_message, bin}, state = %SCSoundServer.State{}) do
     :ok = sc_send(state, bin)
@@ -367,6 +346,15 @@ defmodule SCSoundServer.GenServer do
   @impl true
   def handle_cast({:free, node_id}, state = %SCSoundServer.State{}) do
     {:ok, bin} = OSC.encode(SCSoundServer.Message.free(node_id))
+
+    :ok = sc_send(state, bin)
+
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast({:run, node_id, flag}, state = %SCSoundServer.State{}) do
+    {:ok, bin} = OSC.encode(SCSoundServer.Message.run(node_id, if(flag, do: 1, else: 0)))
 
     :ok = sc_send(state, bin)
 
@@ -676,8 +664,8 @@ defmodule SCSoundServer.GenServer do
         state = %SCSoundServer.State{}
       ) do
     [nid | _] = arguments
-    nnids = state.node_ids ++ [nid]
-    %{state | node_ids: nnids}
+    SCSoundServer.NodeIdAllocator.push_node_id(nid)
+    state
   end
 
   def handle_osc(

@@ -25,8 +25,13 @@ defmodule SCSoundServer do
   @default_init %SCSoundServer.Config{}
 
   def start_link(config \\ @default_init) do
-    SCSoundServer.AudioBusAllocator.start_link(1024, 4)
-    SCSoundServer.ControlBusAllocator.start_link(1024, 4)
+    SCSoundServer.AudioBusAllocator.start_link(config.control_busses, 4)
+    SCSoundServer.ControlBusAllocator.start_link(config.audio_busses, 4)
+
+    SCSoundServer.NodeIdAllocator.start_link(
+      config.end_node_id - config.start_node_id,
+      config.start_node_id
+    )
 
     s =
       GenServer.start_link(
@@ -46,9 +51,9 @@ defmodule SCSoundServer do
     end
   end
 
-  @spec get_next_node_id(atom) :: integer()
-  def get_next_node_id(server_name \\ @default_server_name) do
-    GenServer.call(server_name || @default_server_name, :get_next_node_id)
+  @spec get_next_node_id() :: integer()
+  def get_next_node_id() do
+    SCSoundServer.NodeIdAllocator.pop_node_id()
   end
 
   @spec ready?(atom) :: boolean
@@ -89,6 +94,11 @@ defmodule SCSoundServer do
   @spec free(non_neg_integer, atom) :: any
   def free(synth_id, server_name \\ @default_server_name) do
     GenServer.cast(server_name || @default_server_name, {:free, synth_id})
+  end
+
+  @spec run(non_neg_integer, boolean, atom) :: any
+  def run(synth_id, flag, server_name \\ @default_server_name) do
+    GenServer.cast(server_name || @default_server_name, {:run, synth_id, flag})
   end
 
   @spec start_synth_sync(String.t(), list, non_neg_integer, non_neg_integer, atom) :: any()

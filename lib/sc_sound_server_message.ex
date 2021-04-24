@@ -94,6 +94,13 @@ defmodule SCSoundServer.Message do
     }
   end
 
+  def run(node_id, flag) do
+    %OSC.Message{
+      address: "/n_run",
+      arguments: [node_id, flag]
+    }
+  end
+
   def free(node_id) do
     %OSC.Message{
       address: "/n_free",

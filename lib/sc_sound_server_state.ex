@@ -60,7 +60,6 @@ defmodule SCSoundServer.State do
     field(:exit_status, integer())
     field(:port, pid())
     field(:socket, pid())
-    field(:node_ids, list, enforce: true)
     field(:queries, dafault: %{})
     field(:one_shot_osc_queries, dafault: %{})
   end
