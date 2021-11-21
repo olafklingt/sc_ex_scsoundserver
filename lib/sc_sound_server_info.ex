@@ -131,6 +131,8 @@ defmodule SCSoundServer.Info do
   end
 
   def get_path_to_control_bus(bus_int, info_tree, def_arg_rates, path \\ []) do
+    # IO.inspect(bus_int: bus_int)
+    # IO.inspect(info_tree: info_tree)
     synth = find_last_synth_reading_from_control_bus(bus_int, info_tree)
     [{arg, _bus_id}] = Enum.filter(synth.arguments, fn {_k, v} -> v == "c#{trunc(bus_int)}" end)
 

@@ -39,7 +39,7 @@ defmodule SCSoundServer.Config do
     field(:verbose, non_neg_integer(), default: 0)
     field(:ugen_search_path, boolean(), default: false)
     field(:restricted_path, boolean(), default: false)
-    field(:threads, non_neg_integer(), default: 2)
+    field(:threads, non_neg_integer(), default: 4)
     field(:socket_address, charlist(), default: '127.0.0.1')
     field(:inchannels, non_neg_integer(), default: 8)
     field(:outchannels, non_neg_integer(), default: 8)

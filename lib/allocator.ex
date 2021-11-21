@@ -36,6 +36,12 @@ defmodule SCSoundServer.AudioBusAllocator do
   def pop_bus() do
     Agent.get_and_update(__MODULE__, fn state ->
       [n | tail] = state
+      l = length(tail)
+
+      if l < 100 do
+        IO.inspect({:only_audio_busses_left, l})
+      end
+
       {n, tail}
     end)
   end
@@ -57,7 +63,7 @@ defmodule SCSoundServer.AudioBusAllocator do
 
   def push_bus_after(bus_int, transition_time) when is_integer(bus_int) do
     # IO.inspect({:push_bus_after_init_ar, bus_int, transition_time})
-    :timer.apply_after(trunc(transition_time * 1000), __MODULE__, :push_bus, [bus_int])
+    :timer.apply_after(trunc((transition_time + 60) * 1000), __MODULE__, :push_bus, [bus_int])
   end
 end
 
@@ -95,6 +101,12 @@ defmodule SCSoundServer.ControlBusAllocator do
   def pop_bus() do
     Agent.get_and_update(__MODULE__, fn state ->
       [n | tail] = state
+      l = length(tail)
+
+      if l < 500 do
+        IO.inspect({:only_control_busses_left, l})
+      end
+
       {n, tail}
     end)
   end
@@ -116,7 +128,7 @@ defmodule SCSoundServer.ControlBusAllocator do
 
   def push_bus_after(bus_int, transition_time) when is_integer(bus_int) do
     # IO.inspect({:push_bus_after_init_kr, bus_int, transition_time})
-    :timer.apply_after(trunc(transition_time * 1000), __MODULE__, :push_bus, [bus_int])
+    :timer.apply_after(trunc((transition_time + 60) * 1000), __MODULE__, :push_bus, [bus_int])
   end
 end
 
@@ -135,6 +147,12 @@ defmodule SCSoundServer.NodeIdAllocator do
   def pop_node_id() do
     Agent.get_and_update(__MODULE__, fn state ->
       [n | tail] = state
+      l = length(tail)
+
+      if l < 100 do
+        IO.inspect({:only_node_ids_left, l})
+      end
+
       {n, tail}
     end)
   end
