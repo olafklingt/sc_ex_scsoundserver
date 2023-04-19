@@ -284,10 +284,17 @@ defmodule SCSoundServer.Info do
       when is_list(def_arg_rates) do
     sl = SCSoundServer.Info.get_only_synth_info(g)
 
+    sl =
+      sl
+      |> Enum.reverse()
+      |> Enum.filter(&is_control_synth(&1, def_arg_rates))
+      |> Enum.filter(&is_synth_writing_on_bus(bus_int, &1))
+
+    if [] == sl do
+      IO.inspect({:find_synth_writing_on_control_bus, :no_synth, bus_int})
+    end
+
     sl
-    |> Enum.reverse()
-    |> Enum.filter(&is_control_synth(&1, def_arg_rates))
-    |> Enum.filter(&is_synth_writing_on_bus(bus_int, &1))
   end
 
   def find_synth(test_fun, synth = %SCSoundServer.Info.Synth{}) do

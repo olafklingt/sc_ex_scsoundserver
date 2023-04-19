@@ -91,6 +91,11 @@ defmodule SCSoundServer.GenServer do
   end
 
   defp open_app_port(path, config) do
+    #w = "#{path}/wrapper.sh"
+    #IO.inspect(w)
+    #w = System.find_executable("#{path}/wrapper.sh")
+    #IO.inspect(w)
+
     Port.open(
       {:spawn_executable, System.find_executable("#{path}/wrapper.sh")},
       [
@@ -117,7 +122,7 @@ defmodule SCSoundServer.GenServer do
 
     export = open_app_port(path, config)
 
-    :timer.sleep(2000)
+    :timer.sleep(10000)
 
     {:ok, socket} =
       case protocol do

@@ -27,6 +27,8 @@ defmodule ScExScsoundserver.MixProject do
     [
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:typed_struct, "~> 0.2.0"},
+      #{:osc, git: "https://github.com/iv-mexx/ex_osc.git", override: true}
+      # {:osc, path: "../../github/ex_osc"}
       {:osc, "~> 0.1.2"}
       # {:sc_ex_synthdef, path: "../../github/sc_ex_synthdef/"}
     ]
