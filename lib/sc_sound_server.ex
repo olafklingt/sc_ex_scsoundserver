@@ -25,8 +25,8 @@ defmodule SCSoundServer do
   @default_init %SCSoundServer.Config{}
 
   def start_link(config \\ @default_init) do
-    SCSoundServer.AudioBusAllocator.start_link(config.audio_busses, 4)
-    SCSoundServer.ControlBusAllocator.start_link(config.control_busses, 4)
+    SCSoundServer.AudioBusAllocator.start_link(config.audio_busses, config.outchannels)
+    SCSoundServer.ControlBusAllocator.start_link(config.control_busses, 4) # forgot why 4 maybe 0 is ok
 
     SCSoundServer.NodeIdAllocator.start_link(
       config.end_node_id - config.start_node_id,
