@@ -122,16 +122,17 @@ defmodule SCSoundServer.GenServer do
 
     export = open_app_port(path, config)
 
-    :timer.sleep(10000)
+    # :timer.sleep(5000)
 
-    {:ok, socket} =
-      case protocol do
-        :udp ->
-          :gen_udp.open(0, [:binary, {:active, true}])
+    # {:ok, socket} =
+    #   case protocol do
+    #     :udp ->
+    #       :gen_udp.open(0, [:binary, {:active, true}])
 
-        :tcp ->
-          :gen_tcp.connect('localhost', netport, [:binary, active: true, packet: 4])
-      end
+    #     :tcp ->
+    #       :gen_tcp.connect('localhost', netport, [:binary, active: true, packet: 4])
+    #   end
+    socket = nil
 
     state = %SCSoundServer.State{
       config: config,
@@ -266,6 +267,13 @@ defmodule SCSoundServer.GenServer do
 
     :ok = sc_send(state, bin)
 
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_call({:send_bundle_sync, bundle}, from, state = %SCSoundServer.State{}) do
+    {:ok, bin} = OSC.encode(bundle)
+    :ok = sc_send(state, bin)
     {:noreply, state}
   end
 
@@ -513,7 +521,22 @@ defmodule SCSoundServer.GenServer do
       end
 
     if latest_output =~ startup_string do
-      {:noreply, %{state | ready: true}}
+
+      %SCSoundServer.Config{
+        protocol: protocol,
+        port: netport
+      } = state.config
+
+      {:ok, socket} =
+        case protocol do
+          :udp ->
+            :gen_udp.open(0, [:binary, {:active, true}])
+  
+          :tcp ->
+            :gen_tcp.connect('localhost', netport, [:binary, active: true, packet: 4])
+        end
+
+      {:noreply, %{state | ready: true, socket: socket}}
     else
       {:noreply, state}
     end

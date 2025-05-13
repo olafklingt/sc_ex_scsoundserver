@@ -11,6 +11,7 @@ defmodule SCSoundServer do
     stream =
       Stream.unfold(times, fn x ->
         if SCSoundServer.ready?(server_name) != true && x != 0 do
+          IO.puts("waiting for sc")
           :timer.sleep(100)
           {:ok, x - 1}
         else
@@ -79,6 +80,11 @@ defmodule SCSoundServer do
   @spec queryTree(non_neg_integer, atom) :: any
   def queryTree(group_id, server_name \\ @default_server_name) do
     GenServer.call(server_name || @default_server_name, {:g_queryTree, group_id})
+  end
+
+  @spec queryTreeTimeout(non_neg_integer, non_neg_integer, atom) :: any
+  def queryTreeTimeout(group_id, timeout, server_name \\ @default_server_name) do
+    GenServer.call(server_name || @default_server_name, {:g_queryTree, group_id},timeout)
   end
 
   @spec get(non_neg_integer, String.t(), atom) :: any
@@ -162,6 +168,14 @@ defmodule SCSoundServer do
     )
   end
 
+  @spec send_bundle_sync(binary, atom) :: any()
+  def send_bundle_sync(bundle, server_name \\ @default_server_name) do
+    GenServer.call(
+      server_name || @default_server_name,
+      {:send_bundle_sync, bundle}
+    )
+  end
+  
   @spec new_group_async(non_neg_integer, non_neg_integer, non_neg_integer, atom) :: any()
   def new_group_async(
         node_id,
